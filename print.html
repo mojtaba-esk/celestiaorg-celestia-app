@@ -551,6 +551,9 @@ For the most recent version, which may not reflect the current specifications, r
 <li>The number of shares in the matrix is a perfect square (see <a href="shares.html#tail-padding-share">tail padding share</a>)</li>
 </ol>
 <h2 id="share-format"><a class="header" href="#share-format">Share Format</a></h2>
+<h3 id="share-version"><a class="header" href="#share-version">Share Version</a></h3>
+<p>The share version is a 7-bit big-endian unsigned integer that is used to indicate the version of the <a href="shares.html#share-format">share format</a>. A new share version MUST be introduced if the share format changes in a way that is not backwards compatible. There are two share versions <a href="shares.html#share-version-0">share version 0</a> and <a href="shares.html#share-version-1">share version 1</a>.</p>
+<h3 id="share-version-0"><a class="header" href="#share-version-0">Share Version 0</a></h3>
 <p>Every share has a fixed size <a href="./consensus.html#constants"><code>SHARE_SIZE</code></a>. The share format below is consistent for all shares:</p>
 <ul>
 <li>The first <a href="./consensus.html#constants"><code>NAMESPACE_VERSION_SIZE</code></a> bytes of a share's raw data is the namespace version of that share (denoted by &quot;namespace version&quot; in the figure below).</li>
@@ -570,8 +573,12 @@ For the most recent version, which may not reflect the current specifications, r
 <p>Continuation share in a sequence:</p>
 <p><img src="./figures/share_continuation.svg" alt="figure 2: share continuation" /></p>
 <p>Since raw data that exceeds <a href="./consensus.html#constants"><code>SHARE_SIZE</code></a><code>-</code><a href="./consensus.html#constants"><code>NAMESPACE_SIZE</code></a><code>-</code><a href="./consensus.html#constants"><code>SHARE_INFO_BYTES</code></a> <code>-</code> <a href="./consensus.html#constants"><code>SEQUENCE_BYTES</code></a> bytes will span more than one share, developers MAY choose to encode additional metadata in their raw blob data prior to inclusion in a Celestia block. For example, Celestia transaction shares encode additional metadata in the form of &quot;reserved bytes&quot;.</p>
-<h3 id="share-version"><a class="header" href="#share-version">Share Version</a></h3>
-<p>The share version is a 7-bit big-endian unsigned integer that is used to indicate the version of the <a href="shares.html#share-format">share format</a>. The only supported share version is <code>0</code>. A new share version MUST be introduced if the share format changes in a way that is not backwards compatible.</p>
+<h3 id="share-version-1"><a class="header" href="#share-version-1">Share Version 1</a></h3>
+<p>Share version 1 is similar to share version 0 with the addition of a <code>signer</code> field. The signer is located after the sequence length in the first share. The signer is <a href="./consensus.html#constants"><code>SIGNER_SIZE</code></a> bytes.</p>
+<p>First share in a sequence with signer:</p>
+<p><img src="./figures/first_share_with_signer.svg" alt="figure 3: first share with signer" /></p>
+<p>Continuation share in a sequence:</p>
+<p><img src="./figures/share_continuation.svg" alt="figure 4: share continuation" /></p>
 <h2 id="transaction-shares"><a class="header" href="#transaction-shares">Transaction Shares</a></h2>
 <p>In order for clients to parse shares in the middle of a sequence without downloading antecedent shares, Celestia encodes additional metadata in the shares associated with reserved namespaces. At the time of writing this only applies to the <a href="./namespace.html#reserved-namespaces"><code>TRANSACTION_NAMESPACE</code></a> and <a href="./namespace.html#reserved-namespaces"><code>PAY_FOR_BLOB_NAMESPACE</code></a>. This share structure is often referred to as &quot;compact shares&quot; to differentiate from the share structure defined above for all shares. It conforms to the common <a href="shares.html#share-format">share format</a> with one additional field, the &quot;reserved bytes&quot; field, which is described below:</p>
 <ul>
@@ -656,6 +663,7 @@ A namespace padding share acts as padding between blobs so that the subsequent b
 <tr><td><code>SHARE_INFO_BYTES</code></td><td><code>uint64</code></td><td><code>1</code></td><td><code>byte</code></td><td>The number of bytes used for <a href="data_structures.html#share">share</a> information</td></tr>
 <tr><td><code>SHARE_RESERVED_BYTES</code></td><td><code>uint64</code></td><td><code>4</code></td><td><code>byte</code></td><td>The number of bytes used to store the index of the first transaction in a transaction share. Must be able to represent any integer up to and including <code>SHARE_SIZE - 1</code>.</td></tr>
 <tr><td><code>SHARE_SIZE</code></td><td><code>uint64</code></td><td><code>512</code></td><td><code>byte</code></td><td>Size of transaction and blob <a href="data_structures.html#share">shares</a>, in bytes.</td></tr>
+<tr><td><code>SignerSize</code></td><td><code>int</code></td><td><code>20</code></td><td><code>byte</code></td><td>The number of bytes used to store the signer in a <a href="data_structures.html#share">share</a>.</td></tr>
 <tr><td><code>STATE_SUBTREE_RESERVED_BYTES</code></td><td><code>uint64</code></td><td><code>1</code></td><td><code>byte</code></td><td>Number of bytes reserved to identify state subtrees.</td></tr>
 <tr><td><code>UNBONDING_DURATION</code></td><td><code>uint32</code></td><td></td><td><code>block</code></td><td>Duration, in blocks, for unbonding a validator or delegation.</td></tr>
 <tr><td><code>v1.Version</code></td><td><code>uint64</code></td><td><code>1</code></td><td></td><td>First version of the application. Breaking changes (hard forks) must update this parameter.</td></tr>
@@ -1459,6 +1467,7 @@ src="./figures/rs2d_quadrants.svg" alt="Figure 2: rsmt2d" width="400"/> <img src
 <p>The AnteHandler chains together several decorators to ensure the following criteria are met for app version 3:</p>
 <ul>
 <li>The tx does not contain any messages that are unsupported by the current app version. See <code>MsgVersioningGateKeeper</code>.</li>
+<li>The tx size is not larger than the application's configured versioned constant <a href="https://github.com/celestiaorg/celestia-app/blob/8ba82c1b872b7f5686d9bb91b93a0442223d7bb2/pkg/appconsts/v3/app_consts.go#L9">MaxTxSize</a>.</li>
 <li>The tx does not contain any <a href="https://github.com/cosmos/cosmos-sdk/blob/22c28366466e64ebf0df1ce5bec8b1130523552c/proto/cosmos/tx/v1beta1/tx.proto#L119-L122">extension options</a>.</li>
 <li>The tx passes <code>ValidateBasic()</code>.</li>
 <li>The tx's <a href="https://github.com/cosmos/cosmos-sdk/blob/22c28366466e64ebf0df1ce5bec8b1130523552c/proto/cosmos/tx/v1beta1/tx.proto#L115-L117">timeout_height</a> has not been reached if one is specified.</li>
@@ -2167,7 +2176,7 @@ hardcoded in the application or they are blocked by the <code>x/paramfilter</cod
 <tr><td>consensus.evidence.MaxAgeNumBlocks</td><td>120960</td><td>The maximum number of blocks before evidence is considered invalid. This value will stop CometBFT from pruning block data.</td><td>True</td></tr>
 <tr><td>consensus.evidence.MaxBytes</td><td>1MiB</td><td>Maximum size in bytes used by evidence in a given block.</td><td>True</td></tr>
 <tr><td>consensus.validator.PubKeyTypes</td><td>Ed25519</td><td>The type of public key used by validators.</td><td>False</td></tr>
-<tr><td>consensus.Version.AppVersion</td><td>2</td><td>Determines protocol rules used for a given height. Incremented by the application upon an upgrade.</td><td>True</td></tr>
+<tr><td>consensus.Version.AppVersion</td><td>3</td><td>Determines protocol rules used for a given height. Incremented by the application upon an upgrade.</td><td>True</td></tr>
 <tr><td>distribution.BaseProposerReward</td><td>0</td><td>Reward in the mint denomination for proposing a block.</td><td>True</td></tr>
 <tr><td>distribution.BonusProposerReward</td><td>0</td><td>Extra reward in the mint denomination for proposers based on the voting power included in the commit.</td><td>True</td></tr>
 <tr><td>distribution.CommunityTax</td><td>0.02 (2%)</td><td>Percentage of the inflation sent to the community pool.</td><td>True</td></tr>
